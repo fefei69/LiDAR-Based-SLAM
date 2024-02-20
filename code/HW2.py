@@ -38,8 +38,8 @@ MID = np.array([[1,0,0],
                 [0,1,0],
                 [0,0,np.linalg.det(U @ V)]])
 R_optimal = U @ MID @ V
-print(R_optimal)
-print( V)
+# print(R_optimal)
+# print( V)
 # K = a @ b @ c
 # print(np.sin(45*np.pi/180))
 # rot_bd1wd = transforms3d.euler.euler2mat(45*np.pi/180,0,0,'rzyx')
