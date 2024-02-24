@@ -7,14 +7,10 @@ from scipy.spatial.transform import Rotation
 import pdb
 
 def homegenous_transformation(R, t):
-    translation = np.sum(t, axis=0)
-    R_i = np.eye(3)
-    for i in range(len(R)):
-       rotation = R_i @ R[i].T
-       R_i = rotation
     T = np.eye(4)
-    T[:3, :3] = rotation
-    T[:3, 3] = translation
+    # Open3D might apply T directly (T @ pc)
+    T[:3, :3] = R.T
+    T[:3, 3] = t
     return T
 
 def loss(source, target, R):
@@ -45,20 +41,21 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
     tolerance: float, difference in error to stop iterations
     return: SO(3) numpy array, (3, 3), Rotation matrix
     '''
-    diff_center = np.mean(source,axis=0,keepdims=True) - np.mean(target,axis=0,keepdims=True)
+    # difference in center of mass
+    p_0 = np.mean(source,axis=0,keepdims=True) - np.mean(target,axis=0,keepdims=True)
     if down_sample_rate == 1:
         source_pc_downsampled = source
     else:
         source_pc_downsampled = source[::int(down_sample_rate/5)]
-    target = target + diff_center
+    target = target + p_0
     target_pc_downsampled = target[::down_sample_rate]
     # Sample random z axis rotation for initial guess
     rot_initial_parameter = {'0':-1, '1':-1, '2':-1.7, '3':-2.5}
     terminated_loss = {'0':0.002, '1':0.0055, '2':0.002, '3':0.003}
     Rot = Rotation.from_euler('z',rot_initial_parameter[f'{data_num}']).as_matrix()
+    Old_Rot = Rot
+    Old_Trans = p_0
     rot_target_pc_downsampled =  target_pc_downsampled @ Rot.T
-    rotation_history = []
-    translation_history = []
     for i in range(max_iterations):
         # Find the nearest neighbors
         associated_source, target_pc = data_association(source_pc_downsampled, rot_target_pc_downsampled)
@@ -70,11 +67,14 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
             break
         rot_target_pc_downsampled =  target_pc @ R.T
         translation = np.mean(associated_source,axis=0) - np.mean(rot_target_pc_downsampled,axis=0)
-        rotation_history.append(R)
-        translation_history.append(translation)
-        print("Translation: ",translation)
+        New_Rot = R @ Old_Rot
+        # pdb.set_trace()
+        New_Trans = Old_Trans @ R.T + translation
+        Old_Rot = New_Rot
+        Old_Trans = New_Trans
+        print("new translation",New_Trans)
         rot_target_pc_downsampled = rot_target_pc_downsampled + translation
-        T = homegenous_transformation(rotation_history, translation_history)
+    T = homegenous_transformation(New_Rot, New_Trans)
     return rot_target_pc_downsampled, T
 
 def data_association(source_pc, target_pc):
