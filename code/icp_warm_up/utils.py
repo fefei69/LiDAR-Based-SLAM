@@ -9,7 +9,7 @@ import pdb
 def homegenous_transformation(R, t):
     T = np.eye(4)
     # Open3D might apply T directly (T @ pc)
-    T[:3, :3] = R.T
+    T[:3, :3] = R
     T[:3, 3] = t
     return T
 
@@ -47,6 +47,8 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
         source_pc_downsampled = source
     else:
         source_pc_downsampled = source[::int(down_sample_rate/5)]
+    target_original = target.copy()
+    source_original = source.copy()
     target = target + p_0
     target_pc_downsampled = target[::down_sample_rate]
     # Sample random z axis rotation for initial guess
@@ -54,7 +56,7 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
     terminated_loss = {'0':0.002, '1':0.0055, '2':0.002, '3':0.003}
     Rot = Rotation.from_euler('z',rot_initial_parameter[f'{data_num}']).as_matrix()
     Old_Rot = Rot
-    Old_Trans = p_0
+    Old_Trans = p_0 
     rot_target_pc_downsampled =  target_pc_downsampled @ Rot.T
     for i in range(max_iterations):
         # Find the nearest neighbors
@@ -69,12 +71,16 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
         translation = np.mean(associated_source,axis=0) - np.mean(rot_target_pc_downsampled,axis=0)
         New_Rot = R @ Old_Rot
         # pdb.set_trace()
+        # New_Trans = (R @ Old_Trans.T).T + translation
         New_Trans = Old_Trans @ R.T + translation
         Old_Rot = New_Rot
         Old_Trans = New_Trans
         print("new translation",New_Trans)
         rot_target_pc_downsampled = rot_target_pc_downsampled + translation
-    T = homegenous_transformation(New_Rot, New_Trans)
+    Hard_coded_Translation = np.mean(source_original,axis=0) - np.mean(target_original,axis=0)
+    # pdb.set_trace()
+    T = homegenous_transformation(New_Rot, -Hard_coded_Translation)
+    # T = homegenous_transformation(New_Rot, New_Trans)
     return rot_target_pc_downsampled, T
 
 def data_association(source_pc, target_pc):
@@ -125,8 +131,8 @@ def visualize_icp_result(source_pc, target_pc, pose):
     target_pcd = o3d.geometry.PointCloud()
     target_pcd.points = o3d.utility.Vector3dVector(target_pc.reshape(-1, 3))
     target_pcd.paint_uniform_color([1, 0, 0])
-
-    source_pcd.transform(pose)
+    target_pcd.transform(pose)
+    # source_pcd.transform(pose.T)
 
     o3d.visualization.draw_geometries([source_pcd, target_pcd])
 
