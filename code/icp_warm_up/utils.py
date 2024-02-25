@@ -53,7 +53,7 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
     target_pc_downsampled = target[::down_sample_rate]
     # Sample random z axis rotation for initial guess
     rot_initial_parameter = {'0':-1, '1':-1, '2':-1.7, '3':-2.5}
-    terminated_loss = {'0':0.002, '1':0.0055, '2':0.002, '3':0.003}
+    # terminated_loss = {'0':0.002, '1':0.0055, '2':0.002, '3':0.003}
     Rot = Rotation.from_euler('z',rot_initial_parameter[f'{data_num}']).as_matrix()
     Old_Rot = Rot
     Old_Trans = p_0 
@@ -65,8 +65,8 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
         print("ICP iteration: ",i)
         LOSS = loss(associated_source, target_pc, R)
         print("Loss: ",LOSS)
-        if LOSS < terminated_loss[f'{data_num}']:
-            break
+        # if LOSS < terminated_loss[f'{data_num}']:
+        #     break
         rot_target_pc_downsampled =  target_pc @ R.T
         translation = np.mean(associated_source,axis=0) - np.mean(rot_target_pc_downsampled,axis=0)
         New_Rot = R @ Old_Rot
@@ -75,16 +75,17 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
         New_Trans = Old_Trans @ R.T + translation
         Old_Rot = New_Rot
         Old_Trans = New_Trans
-        print("new translation",New_Trans)
+        # print("new translation",New_Trans)
         rot_target_pc_downsampled = rot_target_pc_downsampled + translation
-    Hard_coded_Translation = np.mean(source_original,axis=0) - np.mean(target_original,axis=0)
-    # pdb.set_trace()
-    T = homegenous_transformation(New_Rot, -Hard_coded_Translation)
-    # T = homegenous_transformation(New_Rot, New_Trans)
-    return rot_target_pc_downsampled, T
+
+    Optimal_translation = np.mean(rot_target_pc_downsampled,axis=0,keepdims=True) - np.mean(target_original,axis=0,keepdims=True) @ New_Rot.T
+    Optimal_translation_inverse = np.mean(target_original,axis=0,keepdims=True) - np.mean(rot_target_pc_downsampled,axis=0,keepdims=True) @ New_Rot
+    T_target_to_source = homegenous_transformation(New_Rot, Optimal_translation)
+    T_source_to_target = homegenous_transformation(New_Rot.T, Optimal_translation_inverse)
+    return rot_target_pc_downsampled, T_source_to_target
 
 def data_association(source_pc, target_pc):
-    print("Numbers of Neighbors",target_pc.shape[0])
+    # print("Numbers of Neighbors",target_pc.shape[0])
     neighbbors = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(source_pc)
     distances, indices = neighbbors.kneighbors(target_pc)
     assoc_source = source_pc[indices].reshape(-1,3)
@@ -131,9 +132,9 @@ def visualize_icp_result(source_pc, target_pc, pose):
     target_pcd = o3d.geometry.PointCloud()
     target_pcd.points = o3d.utility.Vector3dVector(target_pc.reshape(-1, 3))
     target_pcd.paint_uniform_color([1, 0, 0])
-    target_pcd.transform(pose)
-    # source_pcd.transform(pose.T)
-
+    
+    # target_pcd.transform(pose)
+    source_pcd.transform(pose)
     o3d.visualization.draw_geometries([source_pcd, target_pcd])
 
 
