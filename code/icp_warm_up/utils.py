@@ -6,6 +6,23 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.transform import Rotation
 import pdb
 
+def initialize_rotation(source_pc_downsampled,target_pc_downsampled):
+    # positive angle works well in container but not 
+    # rot_sample_set = [i/6*np.pi for i in range(-6,6)]
+    rot_sample_set = [i/6*np.pi for i in range(6)]
+    loss_list = []
+    for rotation_guess in rot_sample_set:
+        Rot = Rotation.from_euler('z',rotation_guess).as_matrix()
+        rot_target_pc_downsampled = target_pc_downsampled @ Rot.T
+        associated_source, target_pc = data_association(source_pc_downsampled, rot_target_pc_downsampled)
+        R = Kabsch_Algorithm(associated_source, target_pc)
+        LOSS = loss(associated_source, target_pc, R)
+        print("Loss: ",LOSS)
+        loss_list.append(LOSS)
+    guessed_angle = rot_sample_set[loss_list.index(min(loss_list))]
+    # pdb.set_trace()
+    return guessed_angle
+
 def homegenous_transformation(R, t):
     T = np.eye(4)
     # Open3D might apply T directly (T @ pc)
@@ -52,11 +69,15 @@ def icp(source, target, down_sample_rate, data_num, max_iterations=150, toleranc
     target = target + p_0
     target_pc_downsampled = target[::down_sample_rate]
     # Sample random z axis rotation for initial guess
-    rot_initial_parameter = {'0':-1, '1':-1, '2':-1.7, '3':-2.5}
+    # rot_initial_parameter = {'0':-1, '1':-1, '2':-1.7, '3':-2.5}
     # terminated_loss = {'0':0.002, '1':0.0055, '2':0.002, '3':0.003}
-    Rot = Rotation.from_euler('z',rot_initial_parameter[f'{data_num}']).as_matrix()
+    # Rot = Rotation.from_euler('z',rot_initial_parameter[f'{data_num}']).as_matrix()
+    guessed_angel = initialize_rotation(source_pc_downsampled,target_pc_downsampled)
+    Rot = Rotation.from_euler('z',guessed_angel).as_matrix()
     Old_Rot = Rot
     Old_Trans = p_0 
+    
+    
     rot_target_pc_downsampled =  target_pc_downsampled @ Rot.T
     for i in range(max_iterations):
         # Find the nearest neighbors
