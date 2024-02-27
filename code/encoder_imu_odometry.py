@@ -3,7 +3,73 @@ from load_data import *
 from sklearn.neighbors import NearestNeighbors
 import pdb
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
 
+def transform_pose_matrix_to_xy(pose_matrix):
+    init_pose = homegenous_transformation(np.eye(3),np.zeros(3))
+    X = []
+    Y = []
+    # pdb.set_trace()
+    for i in range(len(pose_matrix)):
+        position = pose_matrix[i] @ init_pose 
+        x = position[:3, 3][0]
+        y = position[:3, 3][1]
+        X.append(x)
+        Y.append(y)
+    return X, Y
+
+def relative_pose_from_odometry():
+    # Relative pose from Odometry: x, y positions
+    Odo_1_to_T = ODOMETRY[1:]
+    Odo_0_to_T_minus_1 = ODOMETRY[0:-1]
+    Odometry_differece = Odo_1_to_T - Odo_0_to_T_minus_1
+    # Relative pose from Odometry: Theta
+    THETA_1_to_T = THETA[1:]
+    THETA_0_to_T_minus_1 = THETA[0:-1]
+    Theta_differece = THETA_1_to_T - THETA_0_to_T_minus_1
+    return Odometry_differece, Theta_differece  
+
+def generate_relative_pose_matrix(pose):
+    relative_poses = []
+    # relative pose from t+1 to t since the icp inputis target to source
+    for i in range(len(pose)-1):
+        pose_t1_inv = np.linalg.inv(pose[i+1])
+        pose_t1_to_t = pose_t1_inv @ pose[i]
+        relative_poses.append(pose_t1_to_t)
+    return relative_poses
+
+def generate_relative_pose_matrix_normal_convention(pose):
+    relative_poses_t_to_t1 = []
+    # relative pose from t+1 to t since the icp inputis target to source
+    for i in range(len(pose)-1):
+        pose_t1_inv = np.linalg.inv(pose[i])
+        pose_t1_to_t = pose_t1_inv @ pose[i+1]
+        relative_poses_t_to_t1.append(pose_t1_to_t)
+    return relative_poses_t_to_t1
+
+def generate_pose_matrix():
+    init_pose = homegenous_transformation(np.eye(3),np.zeros(3))
+    X = []
+    Y = []
+    poses = []
+    for i,theta in enumerate(THETA):
+        p = np.array([ODOMETRY[:,0][i], ODOMETRY[:,1][i], 0])
+        pose_matrix = homegenous_transformation(Rotation.from_euler('z',theta).as_matrix(),p)
+        position = pose_matrix @ init_pose 
+        # pdb.set_trace()
+        position[:3, 3]
+        x = position[:3, 3][0]
+        y = position[:3, 3][1]
+        X.append(x)
+        Y.append(y)
+        poses.append(pose_matrix)
+    return poses
+def homegenous_transformation(R, t):
+    T = np.eye(4)
+    # Open3D might apply T directly (T @ pc)
+    T[:3, :3] = R
+    T[:3, 3] = t
+    return T
 def sync_data(imu_stamps,encoder_stamps,imu_angular_velocity):
     '''
     Use encoder time stamps to pair with imu angular velocity, 
@@ -89,6 +155,19 @@ with np.load("../data/Imu%d.npz"%dataset) as data:
 # yaw_rate = sync_data(imu_stamps,encoder_stamps,imu_angular_velocity)
 # X = Discrete_time_differential_drive_model(vel,yaw_rate,time_intervals)
 ODOMETRY, THETA= odometry_from_motion_model(encoder_stamps,encoder_counts,imu_stamps,imu_angular_velocity)
-# print(ODOMETRY)
+# print(ODOMETRY[:,0],ODOMETRY[:,1])
+POSE = generate_pose_matrix()
+relative_pose = generate_relative_pose_matrix(POSE)
+relative_pose_t_to_t1 = generate_relative_pose_matrix_normal_convention(POSE)
+# Odometry_differece, Theta_differece = relative_pose_from_odometry()
+# Test if the relative pose is correct
+# print(Odometry_differece[1000])
+# print(Rotation.from_euler('z',Theta_differece[1000]).as_matrix())
+# h = homegenous_transformation(Rotation.from_euler('z',Theta_differece[1000]).as_matrix(),np.append(Odometry_differece[1000],0))
+# print(relative_pose[1000]-h)
+
+# Visualize odometry
 # plt.plot(ODOMETRY[:,0],ODOMETRY[:,1])
+# X,Y = transform_pose_matrix_to_xy(POSE)
+# plt.plot(X,Y)
 # plt.show()
