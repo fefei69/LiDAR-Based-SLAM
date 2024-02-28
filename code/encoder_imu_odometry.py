@@ -165,9 +165,13 @@ relative_pose_t_to_t1 = generate_relative_pose_matrix_normal_convention(POSE)
 # print(Rotation.from_euler('z',Theta_differece[1000]).as_matrix())
 # h = homegenous_transformation(Rotation.from_euler('z',Theta_differece[1000]).as_matrix(),np.append(Odometry_differece[1000],0))
 # print(relative_pose[1000]-h)
-
+x = []
+y = []
+for i in range(len(POSE)):
+    x.append(POSE[i][:3, 3][0])
+    y.append(POSE[i][:3, 3][1])
 # Visualize odometry
 # plt.plot(ODOMETRY[:,0],ODOMETRY[:,1])
 # X,Y = transform_pose_matrix_to_xy(POSE)
-# plt.plot(X,Y)
+# plt.plot(x,y)
 # plt.show()

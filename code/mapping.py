@@ -37,7 +37,7 @@ for i in range(lidar_in_world_frame.shape[0]):
     # pdb.set_trace()
 # occupied = np.asarray(occupied)
 # print(occupied.shape)
-test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame)
+test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,ODOMETRY)
 # print(occupied)
 # print(lidar_in_world_frame.shape)
 # plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")
