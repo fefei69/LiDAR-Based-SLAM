@@ -57,7 +57,7 @@ def generate_pose_matrix():
         pose_matrix = homegenous_transformation(Rotation.from_euler('z',theta).as_matrix(),p)
         position = pose_matrix @ init_pose 
         # pdb.set_trace()
-        position[:3, 3]
+        # position[:3, 3]
         x = position[:3, 3][0]
         y = position[:3, 3][1]
         X.append(x)

@@ -11,6 +11,7 @@ def generate_valid_scan():
 angles = np.arange(-135,135.25,0.25)*np.pi/180.0
 # take valid indices
 ranges, angles = generate_valid_scan()
+# pdb.set_trace()
 # Transform lidar frame to world frame
 x_lidar = []
 y_lidar = []
@@ -37,7 +38,7 @@ for i in range(lidar_in_world_frame.shape[0]):
     # pdb.set_trace()
 # occupied = np.asarray(occupied)
 # print(occupied.shape)
-test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,ODOMETRY)
+test_mapCorrelation(synced_lidar_ranges,POSE,ODOMETRY)
 # print(occupied)
 # print(lidar_in_world_frame.shape)
 # plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")

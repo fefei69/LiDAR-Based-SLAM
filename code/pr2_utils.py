@@ -192,7 +192,7 @@ def bresenham2D(sx, sy, ex, ey):
             y = sy + np.cumsum(q)
         else:
             y = sy - np.cumsum(q)
-    return np.vstack((x,y)).astype(np.int32)
+    return np.vstack((x,y)).astype(np.int16)
     
 
 def test_bresenham2D():
@@ -219,26 +219,28 @@ def test_bresenham2D():
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
-def test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,odometry):
+def test_mapCorrelation(synced_lidar_ranges,POSE,odometry):
     # init MAP
     MAP = {}
     MAP['res']   = 0.05 #meters
-    MAP['xmin']  = -25  #meters
-    MAP['ymin']  = -25
-    MAP['xmax']  =  25
-    MAP['ymax']  =  25 
+    MAP['xmin']  = -30  #meters
+    MAP['ymin']  = -30
+    MAP['xmax']  =  30
+    MAP['ymax']  =  30 
     MAP['sizex']  = int(np.ceil((MAP['xmax'] - MAP['xmin']) / MAP['res'] + 1)) #cells
     MAP['sizey']  = int(np.ceil((MAP['ymax'] - MAP['ymin']) / MAP['res'] + 1))
     MAP['map'] = np.zeros((MAP['sizex'],MAP['sizey']),dtype=np.float32) #DATA TYPE: char or int8
     S_x = []
     S_y = []
-    for i in tqdm(range(40)):#synced_lidar_ranges.shape[1])):
+    x_traj = []
+    y_traj = []
+    for i in tqdm(range(synced_lidar_ranges.shape[1])):
         ranges = synced_lidar_ranges[:,i]
         angles = np.arange(-135,135.25,0.25)*np.pi/180.0
         # ranges = np.load("test_ranges.npy")
 
         # take valid indices
-        indValid = np.logical_and((ranges < 30),(ranges> 0.1))
+        indValid = np.logical_and((ranges < 10),(ranges> 0.1))
         ranges = ranges[indValid]
         angles = angles[indValid]
 
@@ -250,7 +252,18 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,odometry):
         # convert position in the map frame here 
         # convert lidar frame world frame
         lidar_pc = np.stack((xs0-0.135,ys0,np.zeros(xs0.shape),np.ones(xs0.shape))).T
-        lidar_in_world_frame = lidar_pc @ POSE[i]
+        lidar_in_world_frame = lidar_pc @ POSE[i].T
+        init_pose = homegenous_transformation(np.eye(3),np.zeros(3))
+        position =  init_pose @ POSE[i]
+        x_traj.append(np.ceil((position[:3, 3][0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1)
+        y_traj.append(np.ceil((position[:3, 3][1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1)
+        # y_traj.append(np.ceil((MAP['ymax'] - position[:3, 3][1]) / MAP['res'] ).astype(np.int16)-1)
+        in_map = np.logical_and(
+                        np.logical_and(MAP['xmin'] <= lidar_in_world_frame[:, 0],
+                           lidar_in_world_frame[:, 0] <= MAP['xmax']),
+                        np.logical_and(MAP['ymin'] <= lidar_in_world_frame[:, 1],
+                           lidar_in_world_frame[:, 1] <= MAP['ymax']))
+        lidar_in_world_frame = lidar_in_world_frame[in_map,:]
         xs0_w = lidar_in_world_frame[:,0]
         ys0_w = lidar_in_world_frame[:,1]
         Y = np.stack((xs0,ys0))
@@ -282,8 +295,9 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,odometry):
                 # print(ex,ey)
                 # pdb.set_trace()
                 rays = bresenham2D(sx,sy,ex,ey)
-                MAP['map'][rays[0],rays[1]]-=2
-                MAP['map'][ex,ey]+=4
+                MAP['map'][rays[1],rays[0]]-=np.log(2)
+                MAP['map'][ey,ex]+=np.log(4)
+                MAP['map'][(100):(120),100:120]-=np.log(2)
                 occupied.append(bresenham2D(sx,sy,ex,ey))
 
             # convert from meters to cells
@@ -334,20 +348,21 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,lidar_in_world_frame,odometry):
         print("...Test failed. Close figures to continue tests.")	
 
     #plot original lidar points
-    fig1 = plt.figure()
-    plt.plot(Ex,Ey,'.k')
-    plt.plot(xs0_w,ys0_w,'.g')
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Laser reading")
-    plt.axis('equal')
+    # fig1 = plt.figure()
+    # plt.plot(Ex,Ey,'.k')
+    # plt.plot(xs0_w,ys0_w,'.g')
+    # plt.xlabel("x")
+    # plt.ylabel("y")
+    # plt.title("Laser reading")
+    # plt.axis('equal')
 
     #plot map
     fig2 = plt.figure()
-    plt.plot(S_x,S_y,'.r')
+    plt.plot(S_x,S_y,'.b',markersize=5)
+    # plt.plot(x_traj,y_traj,'.r',markersize=5)
     plt.plot(600,600,'.b',markersize=10)
     plt.plot(Ex,Ey,'.g',markersize=1)
-    plt.imshow(MAP['map'],cmap="hot",interpolation='nearest', extent=[0,MAP['sizex'], 0, MAP['sizey']])
+    plt.imshow(MAP['map'],cmap="hot",interpolation='nearest')
     plt.colorbar()
     plt.title("Occupancy grid map")
     
