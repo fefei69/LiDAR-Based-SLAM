@@ -5,7 +5,7 @@ import pdb
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation
 
-def transform_pose_matrix_to_xy(pose_matrix):
+def transform_pose_matrix_to_cells(pose_matrix):
     init_pose = homegenous_transformation(np.eye(3),np.zeros(3))
     X = []
     Y = []
@@ -14,9 +14,30 @@ def transform_pose_matrix_to_xy(pose_matrix):
         position = pose_matrix[i] @ init_pose 
         x = position[:3, 3][0]
         y = position[:3, 3][1]
+        sx = np.ceil((x -(-30)) / 0.05 ).astype(np.int16)-1
+        sy = np.ceil((y -(-30)) / 0.05 ).astype(np.int16)-1
+        X.append(sx)
+        Y.append(sy)
+    return X, Y
+
+def transform_pose_matrix_to_xy(pose_matrix,need_theata=False):
+    init_pose = homegenous_transformation(np.eye(3),np.zeros(3))
+    X = []
+    Y = []
+    Theta = []
+    for i in range(len(pose_matrix)):
+        position = pose_matrix[i] @ init_pose 
+        x = position[:3, 3][0]
+        y = position[:3, 3][1]
         X.append(x)
         Y.append(y)
-    return X, Y
+        r = Rotation.from_matrix(position[:3, :3])
+        deg = r.as_euler('zyx', degrees=False)
+        Theta.append(deg[0])
+    if need_theata == True:
+        return X, Y, Theta
+    else:
+        return X, Y
 
 def relative_pose_from_odometry():
     # Relative pose from Odometry: x, y positions
@@ -159,19 +180,36 @@ ODOMETRY, THETA= odometry_from_motion_model(encoder_stamps,encoder_counts,imu_st
 POSE = generate_pose_matrix()
 relative_pose = generate_relative_pose_matrix(POSE)
 relative_pose_t_to_t1 = generate_relative_pose_matrix_normal_convention(POSE)
+# read numpy
+ld_pose = np.load('results/Estimated_trajectory_dataset20_change_icp_input.npy')
+# print(ld_pose.shape)
+ld_x,ld_x = transform_pose_matrix_to_xy(ld_pose)
+
 # Odometry_differece, Theta_differece = relative_pose_from_odometry()
 # Test if the relative pose is correct
 # print(Odometry_differece[1000])
 # print(Rotation.from_euler('z',Theta_differece[1000]).as_matrix())
 # h = homegenous_transformation(Rotation.from_euler('z',Theta_differece[1000]).as_matrix(),np.append(Odometry_differece[1000],0))
 # print(relative_pose[1000]-h)
-x = []
-y = []
-for i in range(len(POSE)):
-    x.append(POSE[i][:3, 3][0])
-    y.append(POSE[i][:3, 3][1])
 # Visualize odometry
 # plt.plot(ODOMETRY[:,0],ODOMETRY[:,1])
 # X,Y = transform_pose_matrix_to_xy(POSE)
+# np.save('IMU_Od_POSE.npy',np.asarray(POSE))
+# pose_store = np.load('results/Estimated_trajectory_dataset20_change_icp_input.npy')
+# X,Y = transform_pose_matrix_to_xy(pose_store)
+# x,y = transform_pose_matrix_to_xy(POSE)
+# print(pose_store)
+# print(POSE)
+# plt.plot(X,Y)
 # plt.plot(x,y)
+
+# Testing map
+# map = np.load("map/MAP_values.npy")
+# pose_store = np.load('results/Estimated_trajectory_dataset20_change_icp_input.npy')
+# sx,sy = transform_pose_matrix_to_cells(pose_store)
+# pdb.set_trace()
+# plt.plot(sx,sy)
+# plt.imshow(map,cmap="cividis",interpolation='nearest')
+# plt.colorbar()
+# plt.title("Occupancy grid map")
 # plt.show()

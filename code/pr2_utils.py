@@ -63,8 +63,6 @@ def icp_for_scan_matching(source, target, initial_rotation, initial_translation,
     tolerance: float, difference in error to stop iterations
     return: SO(3) numpy array, (3, 3), Rotation matrix
     '''
-    # difference in center of mass
-    # p_0 = np.mean(source,axis=0,keepdims=True) - np.mean(target,axis=0,keepdims=True)
     p_0 = initial_translation
     if down_sample_rate == 1:
         source_pc_downsampled = source
@@ -85,20 +83,13 @@ def icp_for_scan_matching(source, target, initial_rotation, initial_translation,
         # Find the nearest neighbors
         associated_source, target_pc = data_association(source_pc_downsampled, rot_target_pc_downsampled)
         R = Kabsch_Algorithm(associated_source, target_pc)
-        # print("ICP iteration: ",i)
         LOSS = loss(associated_source, target_pc, R)
-        # print("Loss: ",LOSS)
-        # if LOSS < terminated_loss[f'{data_num}']:
-        #     break
         rot_target_pc_downsampled =  target_pc @ R.T
         translation = np.mean(associated_source,axis=0) - np.mean(rot_target_pc_downsampled,axis=0)
         New_Rot = R @ Old_Rot
-        # pdb.set_trace()
-        # New_Trans = (R @ Old_Trans.T).T + translation
         New_Trans = Old_Trans @ R.T + translation
         Old_Rot = New_Rot
         Old_Trans = New_Trans
-        # print("new translation",New_Trans)
         rot_target_pc_downsampled = rot_target_pc_downsampled + translation
     print("Loss: ",LOSS,"\n")
     Optimal_translation = np.mean(rot_target_pc_downsampled,axis=0,keepdims=True) - np.mean(target_original,axis=0,keepdims=True) @ New_Rot.T
@@ -219,7 +210,7 @@ def test_bresenham2D():
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
-def test_mapCorrelation(synced_lidar_ranges,POSE,odometry):
+def Occupancy_Mapping(synced_lidar_ranges,POSE,sx,sy):
     # init MAP
     MAP = {}
     MAP['res']   = 0.05 #meters
@@ -264,29 +255,30 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,odometry):
                         np.logical_and(MAP['ymin'] <= lidar_in_world_frame[:, 1],
                            lidar_in_world_frame[:, 1] <= MAP['ymax']))
         lidar_in_world_frame = lidar_in_world_frame[in_map,:]
-        xs0_w = lidar_in_world_frame[:,0]
-        ys0_w = lidar_in_world_frame[:,1]
-        Y = np.stack((xs0,ys0))
+        # xs0_w = lidar_in_world_frame[:,0]
+        # ys0_w = lidar_in_world_frame[:,1]
+        # Y = np.stack((xs0,ys0))
         
 
         # plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")
         # plt.show()
         # sx = POSE[0][:3, 3][0]
         # sy = POSE[0][:3, 3][1]
-        sx = np.ceil((odometry[:,0][i] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-        sy = np.ceil((odometry[:,1][i] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
+        # sx = np.ceil((SX[i] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
+        # sy = np.ceil((SY[i]- MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
         # sy = np.ceil((MAP['ymax'] - odometry[:,1][i]) / MAP['res'] ).astype(np.int16)-1
 
         # sx = np.ceil((POSE[i][:3, 3][0] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
         # sy = np.ceil((POSE[i][:3, 3][1] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
-        S_x.append(sx)
-        S_y.append(sy)
+
+        # S_x.append(sx)
+        # S_y.append(sy)
         test_map = False
-        occupied = []
         Ex = []
         Ey = []
         if test_map == False:
             for j in range(lidar_in_world_frame.shape[0]):
+                # convert from meters to cells
                 ex = np.ceil((lidar_in_world_frame[:,0][j] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
                 ey = np.ceil((lidar_in_world_frame[:,1][j] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
                 # ey = np.ceil((MAP['ymax'] - lidar_in_world_frame[:,1][j]) / MAP['res'] ).astype(np.int16)-1
@@ -294,58 +286,39 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,odometry):
                 Ey.append(ey)
                 # print(ex,ey)
                 # pdb.set_trace()
-                rays = bresenham2D(sx,sy,ex,ey)
+                rays = bresenham2D(sx[i],sy[i],ex,ey)
                 MAP['map'][rays[1],rays[0]]-=np.log(2)
                 MAP['map'][ey,ex]+=np.log(4)
-                MAP['map'][(100):(120),100:120]-=np.log(2)
-                occupied.append(bresenham2D(sx,sy,ex,ey))
-
-            # convert from meters to cells
-            xis = np.ceil((xs0_w - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-            # yis = np.ceil((MAP['ymax'] - ys0_w) / MAP['res'] ).astype(np.int16)-1
-            yis = np.ceil((ys0_w - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
-            # pdb.set_trace()
-            # build an arbitrary map 
-            # indGood = np.logical_and(np.logical_and(np.logical_and((xis > 1), (yis > 1)), (xis < MAP['sizex'])), (yis < MAP['sizey']))
-            # MAP['map'][xis,yis]+=4
-            # for h in range(len(Ex)):
-            #     MAP['map'][xis,yis]+=2
-            # for k in range(len(occupied)):
-            #     # print(occupied_cells[i][0])
-            #     ex = np.ceil((lidar_in_world_frame[:,0][k] - MAP['xmin']) / MAP['res'] ).astype(np.int16)-1
-            #     ey = np.ceil((lidar_in_world_frame[:,1][k] - MAP['ymin']) / MAP['res'] ).astype(np.int16)-1
-            #     MAP['map'][xis[ex],yis[ey]]+=4
-                # MAP['map'][xis[occupied[k][0]],yis[occupied[k][1]]]-=2
-            # MAP['map'][xis[indGood[0]],yis[indGood[0]]]=1
-            
+                # For testing coordinate
+                # MAP['map'][100:120,100:120]-=np.log(2)
     MAP['map'] = sigmoid(MAP['map'])
-    x_im = np.arange(MAP['xmin'],MAP['xmax']+MAP['res'],MAP['res']) #x-positions of each pixel of the map
-    y_im = np.arange(MAP['ymin'],MAP['ymax']+MAP['res'],MAP['res']) #y-positions of each pixel of the map
+    # x_im = np.arange(MAP['xmin'],MAP['xmax']+MAP['res'],MAP['res']) #x-positions of each pixel of the map
+    # y_im = np.arange(MAP['ymin'],MAP['ymax']+MAP['res'],MAP['res']) #y-positions of each pixel of the map
 
-    x_range = np.arange(-0.2,0.2+0.05,0.05)
-    y_range = np.arange(-0.2,0.2+0.05,0.05)
+    # x_range = np.arange(-0.2,0.2+0.05,0.05)
+    # y_range = np.arange(-0.2,0.2+0.05,0.05)
 
 
   
-    print("Testing map_correlation with {}x{} cells".format(MAP['sizex'],MAP['sizey']))
-    ts = tic()
-    c = mapCorrelation(MAP['map'],x_im,y_im,Y,x_range,y_range)
-    toc(ts,"Map Correlation")
+    # print("Testing map_correlation with {}x{} cells".format(MAP['sizex'],MAP['sizey']))
+    # ts = tic()
+    # c = mapCorrelation(MAP['map'],x_im,y_im,Y,x_range,y_range)
+    # toc(ts,"Map Correlation")
 
-    c_ex = np.array([[3,4,8,162,270,132,18,1,0],
-            [25  ,1   ,8   ,201  ,307 ,109 ,5  ,1   ,3],
-            [314 ,198 ,91  ,263  ,366 ,73  ,5  ,6   ,6],
-            [130 ,267 ,360 ,660  ,606 ,87  ,17 ,15  ,9],
-            [17  ,28  ,95  ,618  ,668 ,370 ,271,136 ,30],
-            [9   ,10  ,64  ,404  ,229 ,90  ,205,308 ,323],
-            [5   ,16  ,101 ,360  ,152 ,5   ,1  ,24  ,102],
-            [7   ,30  ,131 ,309  ,105 ,8   ,4  ,4   ,2],
-            [16  ,55  ,138 ,274  ,75  ,11  ,6  ,6   ,3]])
+    # c_ex = np.array([[3,4,8,162,270,132,18,1,0],
+    #         [25  ,1   ,8   ,201  ,307 ,109 ,5  ,1   ,3],
+    #         [314 ,198 ,91  ,263  ,366 ,73  ,5  ,6   ,6],
+    #         [130 ,267 ,360 ,660  ,606 ,87  ,17 ,15  ,9],
+    #         [17  ,28  ,95  ,618  ,668 ,370 ,271,136 ,30],
+    #         [9   ,10  ,64  ,404  ,229 ,90  ,205,308 ,323],
+    #         [5   ,16  ,101 ,360  ,152 ,5   ,1  ,24  ,102],
+    #         [7   ,30  ,131 ,309  ,105 ,8   ,4  ,4   ,2],
+    #         [16  ,55  ,138 ,274  ,75  ,11  ,6  ,6   ,3]])
     
-    if np.sum(c==c_ex) == np.size(c_ex):
-        print("...Test passed.")
-    else:
-        print("...Test failed. Close figures to continue tests.")	
+    # if np.sum(c==c_ex) == np.size(c_ex):
+    #     print("...Test passed.")
+    # else:
+    #     print("...Test failed. Close figures to continue tests.")	
 
     #plot original lidar points
     # fig1 = plt.figure()
@@ -358,11 +331,15 @@ def test_mapCorrelation(synced_lidar_ranges,POSE,odometry):
 
     #plot map
     fig2 = plt.figure()
-    plt.plot(S_x,S_y,'.b',markersize=5)
+    # plt.plot(S_x,S_y,'.b',markersize=5)
+    plt.plot(sx,sy,'.b',markersize=5)
     # plt.plot(x_traj,y_traj,'.r',markersize=5)
-    plt.plot(600,600,'.b',markersize=10)
-    plt.plot(Ex,Ey,'.g',markersize=1)
-    plt.imshow(MAP['map'],cmap="hot",interpolation='nearest')
+    # For testing coordinate 
+    # plt.plot(600,600,'.b',markersize=10)
+    # For testing lidar transformation (lidar scans)
+    # plt.plot(Ex,Ey,'.g',markersize=1)
+    np.save("map/MAP_values_scan_matching_dataset21.npy",MAP['map'])
+    plt.imshow(MAP['map'],cmap="cividis",interpolation='nearest')
     plt.colorbar()
     plt.title("Occupancy grid map")
     

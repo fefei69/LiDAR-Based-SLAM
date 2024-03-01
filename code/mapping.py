@@ -1,44 +1,25 @@
+# Occupancy mapping
 from pr2_utils import *
 from lidar_scan_matching import *
 
-def generate_valid_scan():
-    angles = np.arange(-135,135.25,0.25)*np.pi/180.0
-    ranges = synced_lidar_ranges[:,0]
-    valid_indices = np.logical_and((ranges < 30),(ranges> 0.1))
-    return ranges[valid_indices], angles[valid_indices]
+def visualize_mapping():
+    # visualize mapping
+    map_value = np.load("map/MAP_values_scan_matching_dataset21.npy")
+    plt.plot(sx,sy,color='orange',label="Robot Trajectory")
+    plt.imshow(map_value,cmap="cividis",interpolation='nearest')
+    plt.colorbar()
+    plt.title("Occupancy grid map of lidar scan matching dataset 21")
+    plt.legend()
+    plt.savefig("map/Occupancy_grid_map_scan_matching_dataset21.png")
+    plt.show()
 
-# ranges = synced_lidar_ranges[:,0]
-angles = np.arange(-135,135.25,0.25)*np.pi/180.0
-# take valid indices
-ranges, angles = generate_valid_scan()
-# pdb.set_trace()
-# Transform lidar frame to world frame
-x_lidar = []
-y_lidar = []
-for i in range(ranges.shape[0]):
-    x = ranges[i] * np.cos(angles[i])
-    y = ranges[i] * np.sin(angles[i])
-    # lidar frame to robot body frame
-    x_lidar.append(x-0.135)
-    y_lidar.append(y)
-x_lidar = np.asarray(x_lidar)
-y_lidar = np.asarray(y_lidar)
-lidar_pc = np.stack((x_lidar,y_lidar,np.zeros(x_lidar.shape),np.ones(x_lidar.shape))).T
-lidar_in_world_frame = lidar_pc @ POSE[0] 
-# plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")
-# plt.show()
-sx = POSE[0][:3, 3][0]
-sy = POSE[0][:3, 3][1]
-occupied = []
-for i in range(lidar_in_world_frame.shape[0]):
-    ex = lidar_in_world_frame[:,0][i]
-    ey = lidar_in_world_frame[:,1][i]
-    # print(ex,ey)
-    occupied.append(bresenham2D(sx,sy,ex,ey))
-    # pdb.set_trace()
-# occupied = np.asarray(occupied)
-# print(occupied.shape)
-test_mapCorrelation(synced_lidar_ranges,POSE,ODOMETRY)
+if __name__ == "__main__":
+    # trajectory from scan matching
+    pose_store = np.load('results/Estimated_trajectory_dataset21_change_icp_input.npy')
+    # All starting points
+    sx,sy = transform_pose_matrix_to_cells(pose_store)
+    Occupancy_Mapping(synced_lidar_ranges,pose_store,sx,sy)
+
 # print(occupied)
 # print(lidar_in_world_frame.shape)
 # plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")
@@ -47,4 +28,4 @@ test_mapCorrelation(synced_lidar_ranges,POSE,ODOMETRY)
 # test_mapCorrelation(synced_lidar_ranges[:,0])
 # plt.plot(ODOMETRY[:,0],ODOMETRY[:,1],"r",label="Odometry",linewidth=2.0)
 # plt.show()
-# bresenham2D(0,0,3,3)
+
