@@ -1,6 +1,6 @@
 import numpy as np
 
-dataset = 21
+dataset = 20
 with np.load("../data/Encoders%d.npz"%dataset) as data:
   encoder_counts = data["counts"] # 4 x n encoder counts
   encoder_stamps = data["time_stamps"] # encoder time stamps

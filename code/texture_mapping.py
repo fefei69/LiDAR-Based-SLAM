@@ -132,14 +132,15 @@ if __name__ == '__main__':
         # if i > 50:
         #     break
 
-    color = 'blue'
     plt.imshow(MAP['map'])
-    np.save("map/texture_mapping.npy",MAP['map'])
+    np.save(f"map/texture_mapping_dataset{dataset}.npy",MAP['map'])
     plt.plot(x_traj,y_traj,color=plt.cm.cividis(0.15),label="Robot Trajectory",linewidth=3.0)
     plt.title(f"Texture mapping of dataset {dataset}")
     plt.legend()
-    plt.savefig("map/Texture_mapping_cividis.png")
+    # plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}_change_kinect_to_body.png")
+    plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}.png")
     plt.show()
+
     # # display valid RGB pixels
     # fig = plt.figure(figsize=(10, 13.3))
     # ax = fig.add_subplot(projection='3d')

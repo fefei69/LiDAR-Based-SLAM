@@ -2,3 +2,8 @@ docs/
 data/
 ECE276A_PR2.pdf
 code/icp_warm_up/test.py
+code/results/
+map/
+wsl_results
+unused_results/
+images_for_report/

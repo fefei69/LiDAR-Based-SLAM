@@ -7,6 +7,7 @@ import pdb
 import time
 from scipy.spatial.transform import Rotation
 from tqdm import tqdm
+
 def relative_pose_from_odometry():
     # Relative pose from Odometry: x, y positions
     Odo_1_to_T = ODOMETRY[1:]

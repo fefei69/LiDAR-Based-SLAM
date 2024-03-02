@@ -16,6 +16,7 @@ def visualize_mapping():
 if __name__ == "__main__":
     # trajectory from scan matching
     pose_store = np.load('results/Estimated_trajectory_dataset21_change_icp_input.npy')
+    
     # All starting points 
     sx,sy = transform_pose_matrix_to_cells(pose_store)
     Occupancy_Mapping(synced_lidar_ranges,pose_store,sx,sy)

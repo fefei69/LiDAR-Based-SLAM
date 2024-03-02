@@ -156,7 +156,7 @@ def odometry_from_motion_model(encoder_stamps,encoder_counts,imu_stamps,imu_angu
     X, Theta= Discrete_time_differential_drive_model(vel,yaw_rate,time_intervals)
     return X, Theta
 
-dataset = 20
+dataset = 21
 with np.load("../data/Encoders%d.npz"%dataset) as data:
     encoder_counts = data["counts"] # 4 x n encoder counts
     encoder_stamps = data["time_stamps"] # encoder time stamps
@@ -181,9 +181,9 @@ POSE = generate_pose_matrix()
 relative_pose = generate_relative_pose_matrix(POSE)
 relative_pose_t_to_t1 = generate_relative_pose_matrix_normal_convention(POSE)
 # read numpy
-ld_pose = np.load('results/Estimated_trajectory_dataset20_change_icp_input.npy')
+# ld_pose = np.load('results/Estimated_trajectory_dataset20_change_icp_input.npy')
 # print(ld_pose.shape)
-ld_x,ld_x = transform_pose_matrix_to_xy(ld_pose)
+# ld_x,ld_x = transform_pose_matrix_to_xy(ld_pose)
 
 # Odometry_differece, Theta_differece = relative_pose_from_odometry()
 # Test if the relative pose is correct
