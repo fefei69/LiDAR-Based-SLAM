@@ -61,7 +61,7 @@ def generate_relative_pose_matrix(pose):
 
 def generate_relative_pose_matrix_normal_convention(pose):
     relative_poses_t_to_t1 = []
-    # relative pose from t+1 to t since the icp inputis target to source
+    # relative pose from t to t+1 since the icp inputis target to source
     for i in range(len(pose)-1):
         pose_t1_inv = np.linalg.inv(pose[i])
         pose_t1_to_t = pose_t1_inv @ pose[i+1]
