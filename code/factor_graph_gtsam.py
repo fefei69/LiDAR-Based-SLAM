@@ -3,7 +3,7 @@ import gtsam
 import numpy as np
 import matplotlib.pyplot as plt
 from encoder_imu_odometry import *
-
+dataset = 20
 def intial_estimation(lidar_x, imu_x, imu_y, imu_theta):
     # Constructing nodes
     initial_estimate = gtsam.Values()
@@ -23,19 +23,26 @@ def create_prior():
 
 if __name__ == "__main__":
     # Run basic tests
-    pose_from_icp = np.load(f'results/Estimated_trajectory_dataset{dataset}_change_icp_input.npy')
-    pose_from_imu = np.load('IMU_Od_POSE.npy')
+    pose_from_icp = np.load(f'robot_trajectory/lidar/Estimated_trajectory_dataset{dataset}_change_icp_input.npy')
+    pose_from_imu = np.load(f'robot_trajectory/IMU_Odometry_Pose_dataset{dataset}.npy')
     prior_noise = create_prior()
-    building_nodes_w_icp = True
-    building_edges_w_icp = False
+    building_nodes_w_icp = False
+    building_edges_w_icp = True
     loop_closure = True
     gauss_newton_optimizer = False
     # Create a factor graph
     graph = gtsam.NonlinearFactorGraph()
     graph.add(prior_noise)
-    # For simplicity, we will use the same noise model for odometry and loop closures
-    noise_model = gtsam.noiseModel.Diagonal.Sigmas([0.2, 0.2, 0.5])
-    loop_model = gtsam.noiseModel.Diagonal.Sigmas([0.01, 0.01, 0.02])
+    if (building_edges_w_icp == True) and (loop_closure == True):
+        odometry_model = gtsam.noiseModel.Diagonal.Sigmas([0.2, 0.2, 0.5])
+        loop_model = gtsam.noiseModel.Diagonal.Sigmas([0.2, 0.2, 0.5])
+        print("Using ICP for edges and loop closure, assuming icp is not accurate")
+    elif (building_edges_w_icp == True) and (loop_closure == False):
+        odometry_model = gtsam.noiseModel.Diagonal.Sigmas([0.01, 0.01, 0.02])
+        print("Using ICP for edges and no loop closure")
+    else:
+        odometry_model = gtsam.noiseModel.Diagonal.Sigmas([0.1, 0.1, 0.2])
+        loop_model = gtsam.noiseModel.Diagonal.Sigmas([0.01, 0.01, 0.02])
     lidar_x, lidar_y, lidar_theta = transform_pose_matrix_to_xy(pose_from_icp,need_theata=True)
     imu_x, imu_y, imu_theta = transform_pose_matrix_to_xy(pose_from_imu,need_theata=True)
     if building_nodes_w_icp == True:
@@ -49,14 +56,14 @@ if __name__ == "__main__":
         rel_x, rel_y, rel_theta = transform_pose_matrix_to_xy(relative_pose_icp,need_theata=True)
         # Constructing edges
         for j in range(len(relative_pose_icp)):
-            graph.add(gtsam.BetweenFactorPose2(j, j+1, gtsam.Pose2(rel_x[j], rel_y[j], rel_theta[j]), noise_model))
+            graph.add(gtsam.BetweenFactorPose2(j, j+1, gtsam.Pose2(rel_x[j], rel_y[j], rel_theta[j]), odometry_model))
     else:
         # building edges with imu
         relative_pose_imu = generate_relative_pose_matrix_normal_convention(pose_from_imu)
         rel_x, rel_y, rel_theta = transform_pose_matrix_to_xy(relative_pose_imu,need_theata=True)
         # Constructing edges
         for j in range(len(relative_pose_imu)):
-            graph.add(gtsam.BetweenFactorPose2(j, j+1, gtsam.Pose2(rel_x[j], rel_y[j], rel_theta[j]), noise_model))
+            graph.add(gtsam.BetweenFactorPose2(j, j+1, gtsam.Pose2(rel_x[j], rel_y[j], rel_theta[j]), odometry_model))
     # loop closure
     if loop_closure == True:
         loop_interval = 2
@@ -87,18 +94,23 @@ if __name__ == "__main__":
     x = [result.atPose2(i).x() for i in range(result.size())]
     y = [result.atPose2(i).y() for i in range(result.size())]
     theta = [result.atPose2(i).theta() for i in range(result.size())]
-    np.save('results/dataset20_gtsam_imu_icp_icp.npy',np.array([x,y,theta,np.ones(len(x))]).T)
+    # np.save(f'results/dataset{dataset}_gtsam_icp_imu_icp.npy',np.array([x,y,theta,np.ones(len(x))]).T)
+    np.save(f'robot_trajectory/gtsam_optimized/dataset{dataset}_gtsam_no_loop.npy',np.array([x,y,theta,np.ones(len(x))]).T)
     print("initial error: ",graph.error(initial_estimate))
     print("Final error: ",graph.error(result))
     plt.figure(figsize=(20,15))
     # plt.figure(dpi=100) 
-    plt.plot(lidar_x, lidar_y,'x',label="Lidar",linewidth=.1)
-    plt.plot(imu_x, imu_y, '.g',label="IMU",linewidth=0.1)
-    plt.plot(x, y, '*r',label="GTSAM",linewidth=0.1)
+    plt.plot(lidar_x, lidar_y,'b',label="Lidar",linewidth=5)
+    plt.plot(imu_x, imu_y, 'g',label="IMU",linewidth=5)
+    plt.plot(x, y, 'r',label="GTSAM",linewidth=5)
     plt.grid()
     plt.xlabel("X Postiton",fontsize=20)
     plt.ylabel("Y Position",fontsize=20)
-    plt.title("Factor Graph Optimization with GTSAM",fontsize=20)
+    if loop_closure == True:
+        plt.title("Factor Graph Optimization With Loop Closure Constraint",fontsize=20)
+    else:
+        plt.title("Factor Graph Optimization Without Loop Closure Constraint",fontsize=20)
     plt.tight_layout()
     plt.legend(fontsize=20)
-    # plt.savefig('wsl_results/loop_closure_gtsam_icp_imu_icp.png')
+    plt.show()
+    # plt.savefig(f'wsl_results/loop_closure_gtsam_noloop_dataset{dataset}.png')

@@ -10,6 +10,14 @@ from tqdm import tqdm
 disp_path = f"../data/Disparity{dataset}/"
 rgb_path = f"../data/RGB{dataset}/"
 
+def state_matrix_to_pose_matrix(state_matrix):
+    pose_matrix = []
+    for i in range(len(state_matrix)):
+        r = Rotation.from_euler('z', state_matrix[i][2]).as_matrix()
+        pose = homegenous_transformation(r,np.append(state_matrix[i][0:2],0))
+        pose_matrix.append(pose)   
+    return np.array(pose_matrix)
+
 def transformation_for_image(image_cord,T):
     # hard coded shape for now 
     image_cord_reshape = image_cord.reshape(-1,4)
@@ -21,7 +29,7 @@ def pose_transformation_for_image(image_cord,T):
     # hard coded shape for now 
     image_cord_reshape = image_cord.reshape(-1,4)
     transformed_image_cord = image_cord_reshape @ T.T
-    image_cord_reshape_back = transformed_image_cord.reshape(480,640,4)
+    image_cord_reshape_back = transformed_image_cord.reshape(image_cord.shape[0],image_cord.shape[1],4)
     return image_cord_reshape_back
 
 def homegenous_transformation(R, t):
@@ -47,6 +55,7 @@ def normalize(img):
 
 if __name__ == '__main__':
     # init MAP
+    print("Dataset:",dataset)
     print("numbers of disparity",disp_stamps.shape)
     print("numbers of rgb images",rgb_stamps.shape)
     MAP = {}
@@ -62,12 +71,19 @@ if __name__ == '__main__':
     synced_lidar_indices = sync_data(lidar_stamsp,encoder_stamps)
     synced_lidar_stamps = lidar_stamsp[synced_lidar_indices]
     synced_lidar_indices = sync_data(synced_lidar_stamps,rgb_stamps)
-    pose_store = np.load(f'results/Estimated_trajectory_dataset{dataset}_change_icp_input.npy')
-    x_traj,y_traj = transform_pose_matrix_to_cells(pose_store)
+
+    # IMU Odometry trajectory 
+    pose_store = np.load(f'robot_trajectory/IMU_Odometry_Pose_dataset{dataset}.npy') 
+
+    # Lidar scan matching trajectory
+    # pose_store = np.load(f'robot_trajectory/lidar/Estimated_trajectory_dataset{dataset}_change_icp_input.npy') 
+
+    # GTSAM optimized trajectory
+    # pose_store = np.load(f'robot_trajectory/gtsam_optimized/dataset{dataset}_gtsam_icp_imu_icp.npy') 
+    # pose_store = state_matrix_to_pose_matrix(pose_store)
+    x_traj, y_traj = transform_pose_matrix_to_cells(pose_store)
     # minus 1 to match the index of poses
     pose_synced = pose_store[np.squeeze(synced_lidar_indices-1)] # (2289,4,4)
-    # x_traj,y_traj = transform_pose_matrix_to_cells(pose_synced)
-    # pdb.set_trace()
     # disparity images are more than rgb images
     for i, i_dis in enumerate(tqdm(np.squeeze(indices_dis))):
         # load RGBD image
@@ -100,19 +116,16 @@ if __name__ == '__main__':
         x = (u-cx) / fx * z
         y = (v-cy) / fy * z
 
-        # Test if the transformation to image is correct
-        # image_cord = np.stack((x,y,z, np.ones(u.shape)),axis=2)
-        # image_back = transformation_for_image(image_cord,test_otor_transform)
-
         # optical frame to kinect frame
         kinect_frame = np.stack((z,-x,-y,np.ones(z.shape)),axis=2)
         # yaw 0.021 pitch 0.36 Roll 0
-        R_kninet_to_robot_center = Rotation.from_euler('zyx', [0.021, 0.36, 0]).as_matrix()
+        R_kninet_to_robot_center = Rotation.from_euler('zyx', [-0.021, -0.36, 0]).as_matrix()
         # kinect frame to body frame
-        T_to_rob_fr = homegenous_transformation(R_kninet_to_robot_center,np.array([0.18,0.005,0.36]))
+        T_to_rob_fr = homegenous_transformation(R_kninet_to_robot_center,np.array([-0.18,-0.005,-0.36]))
         robot_body = pose_transformation_for_image(kinect_frame,T_to_rob_fr)
         # robot body to world frame
         image_world_frame = pose_transformation_for_image(robot_body,pose_synced[i])
+        # make sure the points are in the map
         in_map = np.logical_and(
                         np.logical_and(MAP['xmin'] <= image_world_frame[..., 0],
                            image_world_frame[..., 0] <= MAP['xmax']),
@@ -129,28 +142,15 @@ if __name__ == '__main__':
         floor = image_world_frame[:,:,2] < 0.1
         floor = valid&floor&in_map
         MAP['map'][y_w_fr_incell[floor],x_w_fr_incell[floor],:] = imc[rgbv[floor].astype(int),rgbu[floor].astype(int)]
-        # if i > 50:
+        # if i > 25:
         #     break
-
+    plt.figure(figsize=(20,15))
     plt.imshow(MAP['map'])
-    np.save(f"map/texture_mapping_dataset{dataset}.npy",MAP['map'])
-    plt.plot(x_traj,y_traj,color=plt.cm.cividis(0.15),label="Robot Trajectory",linewidth=3.0)
-    plt.title(f"Texture mapping of dataset {dataset}")
+    # np.save(f"map/Texture_mapping/texture_mapping_dataset{dataset}_imu.npy",MAP['map'])
+    plt.plot(x_traj, y_traj, color=plt.cm.cividis(0.15),label="Robot Trajectory",linewidth=3.0)
+    plt.title(f"Texture mapping of dataset {dataset} with factor graph optimized trajectory")
     plt.legend()
-    # plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}_change_kinect_to_body.png")
-    plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}.png")
+    
+    # plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}_imu.png")
+    # plt.savefig(f"map/Texture_mapping_cividis_dataset{dataset}.png")
     plt.show()
-
-    # # display valid RGB pixels
-    # fig = plt.figure(figsize=(10, 13.3))
-    # ax = fig.add_subplot(projection='3d')
-    # ax.scatter(z[valid],-x[valid],-y[valid],c=imc[rgbv[valid].astype(int),rgbu[valid].astype(int)]/255.0)
-    # ax.set_xlabel('X')
-    # ax.set_ylabel('Y')
-    # ax.set_zlabel('Z')
-    # ax.view_init(elev=0, azim=180)
-    # plt.show()
-
-    # # display disparity image
-    # plt.imshow(normalize(imd), cmap='gray')
-    # plt.show()

@@ -3,7 +3,11 @@ data/
 ECE276A_PR2.pdf
 code/icp_warm_up/test.py
 code/results/
-map/
 wsl_results
 unused_results/
 images_for_report/
+code/test_mapping.py
+images/
+code/icp_warm_up/icp_results/
+code/HW2.py
+code/test_ranges.npy

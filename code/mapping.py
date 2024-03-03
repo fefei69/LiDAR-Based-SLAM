@@ -14,19 +14,19 @@ def visualize_mapping():
     plt.show()
 
 if __name__ == "__main__":
-    # trajectory from scan matching
-    pose_store = np.load('results/Estimated_trajectory_dataset21_change_icp_input.npy')
-    
+    print("Dataset:",dataset)
+    # Trajectory from imu odometry
+    # pose_store = np.load(f'robot_trajectory/IMU_Odometry_Pose_dataset{dataset}.npy')
+
+    # Trajectory from scan matching
+    # pose_store = np.load(f'robot_trajectory/lidar/Estimated_trajectory_dataset{dataset}_change_icp_input.npy')
+
+    # Trajectory from gtsam
+    pose_store = np.load(f'robot_trajectory/gtsam_optimized/dataset{dataset}_gtsam_icp_imu_icp.npy') 
+    pose_store = state_matrix_to_pose_matrix(pose_store)
     # All starting points 
     sx,sy = transform_pose_matrix_to_cells(pose_store)
     Occupancy_Mapping(synced_lidar_ranges,pose_store,sx,sy)
 
-# print(occupied)
-# print(lidar_in_world_frame.shape)
-# plt.plot(lidar_in_world_frame[:,0],lidar_in_world_frame[:,1],"k.")
-# plt.plot(lidar_pc[:,0],lidar_pc[:,1],"r.")
-# plt.show()
-# test_mapCorrelation(synced_lidar_ranges[:,0])
-# plt.plot(ODOMETRY[:,0],ODOMETRY[:,1],"r",label="Odometry",linewidth=2.0)
-# plt.show()
+
 
