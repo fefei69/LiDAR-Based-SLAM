@@ -5,7 +5,7 @@ from scipy.spatial.transform import Rotation
 import open3d as o3d
 import copy
 if __name__ == "__main__":
-    obj_name = 'liq_container' # drill or liq_container
+    obj_name = 'drill' # drill or liq_container
     num_pc = 4 # number of point clouds
     down_sample_rate = 10
     source_pc = read_canonical_model(obj_name)

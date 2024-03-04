@@ -155,6 +155,6 @@ def visualize_icp_result(source_pc, target_pc, pose,num):
     # target_pcd.transform(pose)
     source_pcd.transform(pose)
     o3d.visualization.draw_geometries([source_pcd, target_pcd])
-    # o3d.io.write_point_cloud(f"icp_results/drill{num}.ply", source_pcd+target_pcd)
+    o3d.io.write_point_cloud(f"icp_results/drill{num}.ply", source_pcd+target_pcd)
 
 
